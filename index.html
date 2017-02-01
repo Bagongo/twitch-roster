@@ -22,7 +22,7 @@
     }
             
     .small-margin{
-        margin: 5px;
+        margin: 10px;
     }
     
     #flex-container{
@@ -64,6 +64,10 @@
         align-self: center;
     }
     
+    #clone-01{
+        display: none;
+    }
+    
     #results-cont{
         width: 300px;
         height: 80%;
@@ -102,8 +106,7 @@
 </style>    
 
 <body>
-    
-    
+       
     <div id="flex-container">
     
         <div id="ext-frame">
@@ -121,14 +124,16 @@
                 <button id="offline">Offline</button>
             </div>
             
+            <div id="clone-01" class="result">
+                <div class="info-head">
+                    <h4 class="small-margin">CLONE SOURC.</h4>
+                    <div class="online-symbol small-margin"></div>
+                </div>
+                <p class="small-margin"></p>
+            </div>   
+            
             <div id="results-cont">
-                <div id="clone-01" class="result">
-                    <div class="info-head">
-                        <h4 class="small-margin"></h4>
-                        <div class="online-symbol small-margin"></div>
-                    </div>
-                    <p class="small-margin"></p>
-                </div>          
+                       
             </div>
         
         </div>
@@ -140,9 +145,33 @@
     
         window.onload = function(){
             
-            var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas"];
+            var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas"];                    
+            var currentState = "all";
+            var buttonsLocked = false; 
+            
+            var buttons = document.getElementById("button-box").children;            
+            for(var i=0; i < buttons.length; i++)
+            {
+                buttons[i].addEventListener("click", function(){                
+                    if(!buttonsLocked)
+                    {
+                        buttonsLocked = true;
+                        currentState = this.id;
+                        var resultsBox = document.getElementById("results-cont");
+
+                        while(resultsBox.firstChild)
+                            resultsBox.removeChild(resultsBox.firstChild);
+
+                        for(var i=0; i < favorites.length; i++)
+                        {
+                            var lastCall = i >= favorites.length - 1 ? true : false;
+                            getStreamer(favorites[i], fillResultsField, lastCall);
+                        }
+                    }
+                });
+            }
                              
-            function getStreamer(name, callback)
+            function getStreamer(name, callback, isLastCall)
             {
                 var xhttp = new XMLHttpRequest();
                 
@@ -150,12 +179,18 @@
                     if (xhttp.readyState == 4) 
                     {
                         if(xhttp.status == 200)
-                        {
+                        {                      
+                            if(isLastCall)
+                                buttonsLocked = false;
+                            
                             var result = JSON.parse(xhttp.responseText);
-                            callback(name, result);    
+                            callback(name, result);
                         }
                         else
+                        {
                             console.log("Error", xhttp.statusText);
+                            buttonsLocked = false;
+                        }
                     }
                 };
                 
@@ -163,29 +198,24 @@
                 xhttp.setRequestHeader("Client-ID", "qommjzx8gzcyskocbzmig7rh1zi2i3");
                 xhttp.send();   
             }
-                        
-          
-            for(var i=0; i < favorites.length; i++)
-            {
-                getStreamer(favorites[i], fillAll);
-            }
             
-            function fillAll(name, streamerObj)
-            {
-                console.log(streamerObj.stream);
-                
+            function fillResultsField(name, streamerObj)
+            {                
                 var resultClone = document.getElementById("clone-01").cloneNode(true);
                 var header = resultClone.firstElementChild;
-                resultClone.removeAttribute("id");    
+                resultClone.removeAttribute("id");
                 header.getElementsByTagName('h4')[0].innerHTML = name;
                 
-                if(streamerObj.stream != null)
+                var isStreaming = streamerObj.stream != null;
+                
+                if(isStreaming)
                 {
                     resultClone.getElementsByTagName('p')[0].innerHTML = streamerObj.stream.channel.status;
                     header.getElementsByTagName('div')[0].style.backgroundColor = "green";
                 }
-                               
-                document.getElementById("results-cont").appendChild(resultClone);
+                
+                if( currentState === "all" || isStreaming == (currentState === "online"))
+                    document.getElementById("results-cont").appendChild(resultClone);
             }
         };
         
