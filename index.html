@@ -11,20 +11,138 @@
     <script src="https://use.fontawesome.com/c4baa82464.js"></script>        
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 </head>
+    
+    
+<style>
+    
+    body, html{
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+            
+    .small-margin{
+        margin: 5px;
+    }
+    
+    #flex-container{
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    #ext-frame{
+        width: 750px;
+        height: 80%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: antiquewhite;
+    }
+    
+    #top-section{
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        background-color: aqua;
+    }
+    
+    #top-section *{
+        margin: 5%;
+    }
+    
+    #top-section img{
+        width: 200px;
+        height: auto;
+    }
+    
+    #top-section input{
+        height: 40px;
+        align-self: center;
+    }
+    
+    #results-cont{
+        width: 300px;
+        height: 80%;
+        max-height: 80%;
+        overflow: scroll;
+        background-color: black;
+    }
+    
+    .result{
+        width: 100%;
+        height: auto;
+        min-height: 75px;
+        display: flex;
+        flex-direction: column;
+        background-color: wheat;
+    }
+    
+    .info-head{
+        height: 50%;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+        background-color: skyblue;
+    }
+    
+    .online-symbol{
+        width: 10px;
+        height: 10px;
+        float: right;
+        border-radius: 5px;
+        background-color: red;
+    }
+    
+</style>    
 
 <body>
     
-        
     
+    <div id="flex-container">
     
+        <div id="ext-frame">
+            
+            <div id="top-section">
+                <img src="http://blog.maniaplanet.com/wp-content/uploads/2013/03/new-twitchtv-logo.png" />
+                <input type="text" />
+            </div>
+            
+            <br />
+            
+            <div id="button-box">
+                <button id="all">All</button>
+                <button id="online">Online</button>
+                <button id="offline">Offline</button>
+            </div>
+            
+            <div id="results-cont">
+                <div id="clone-01" class="result">
+                    <div class="info-head">
+                        <h4 class="small-margin"></h4>
+                        <div class="online-symbol small-margin"></div>
+                    </div>
+                    <p class="small-margin"></p>
+                </div>          
+            </div>
         
+        </div>
+       
+    </div>
+        
+           
     <script>
     
         window.onload = function(){
             
-            var streamers = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas"];
+            var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas"];
                              
-            function getStreamer(name)
+            function getStreamer(name, callback)
             {
                 var xhttp = new XMLHttpRequest();
                 
@@ -33,9 +151,8 @@
                     {
                         if(xhttp.status == 200)
                         {
-                            console.log("go!!!");
-                            var result = JSON.parse(xhttp.responseText);                    
-                            console.log(result);
+                            var result = JSON.parse(xhttp.responseText);
+                            callback(name, result);    
                         }
                         else
                             console.log("Error", xhttp.statusText);
@@ -46,14 +163,32 @@
                 xhttp.setRequestHeader("Client-ID", "qommjzx8gzcyskocbzmig7rh1zi2i3");
                 xhttp.send();   
             }
+                        
+          
+            for(var i=0; i < favorites.length; i++)
+            {
+                getStreamer(favorites[i], fillAll);
+            }
             
-            getStreamer("freecodecamp");
-            
-            
+            function fillAll(name, streamerObj)
+            {
+                console.log(streamerObj.stream);
+                
+                var resultClone = document.getElementById("clone-01").cloneNode(true);
+                var header = resultClone.firstElementChild;
+                resultClone.removeAttribute("id");    
+                header.getElementsByTagName('h4')[0].innerHTML = name;
+                
+                if(streamerObj.stream != null)
+                {
+                    resultClone.getElementsByTagName('p')[0].innerHTML = streamerObj.stream.channel.status;
+                    header.getElementsByTagName('div')[0].style.backgroundColor = "green";
+                }
+                               
+                document.getElementById("results-cont").appendChild(resultClone);
+            }
         };
-    
-    
-    
+        
     </script>
     
 </body>
