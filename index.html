@@ -20,6 +20,11 @@
         margin: 0;
         padding: 0;
     }
+    
+    a{
+        color: black;
+        text-decoration: none;
+    }
             
     .small-margin{
         margin: 10px;
@@ -125,16 +130,16 @@
             </div>
             
             <div id="clone-01" class="result">
-                <div class="info-head">
-                    <h4 class="small-margin">CLONE SOURC.</h4>
-                    <div class="online-symbol small-margin"></div>
-                </div>
-                <p class="small-margin"></p>
+                <a href="" target="_blank">
+                    <div class="info-head">
+                        <h4 class="small-margin"></h4>
+                        <div class="online-symbol small-margin"></div>
+                    </div>
+                    <p class="small-margin"></p>
+                </a>
             </div>   
             
-            <div id="results-cont">
-                       
-            </div>
+            <div id="results-cont"></div>
         
         </div>
        
@@ -145,9 +150,11 @@
     
         window.onload = function(){
             
-            var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas"];                    
+            var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas", "brunofin", "comster404"];                    
             var currentState = "all";
-            var buttonsLocked = false; 
+            var buttonsLocked = false;
+            var onlineStreamers = [];
+            var offlineStreamers = [];
             
             var buttons = document.getElementById("button-box").children;            
             for(var i=0; i < buttons.length; i++)
@@ -161,17 +168,20 @@
 
                         while(resultsBox.firstChild)
                             resultsBox.removeChild(resultsBox.firstChild);
+                        
+                        onlineStreamers = [];
+                        offlineStreamers = [];
 
                         for(var i=0; i < favorites.length; i++)
                         {
                             var lastCall = i >= favorites.length - 1 ? true : false;
-                            getStreamer(favorites[i], fillResultsField, lastCall);
+                            getStream(favorites[i], lastCall);
                         }
                     }
                 });
             }
                              
-            function getStreamer(name, callback, isLastCall)
+            function getStream(name, isLastCall)
             {
                 var xhttp = new XMLHttpRequest();
                 
@@ -179,17 +189,24 @@
                     if (xhttp.readyState == 4) 
                     {
                         if(xhttp.status == 200)
-                        {                      
-                            if(isLastCall)
-                                buttonsLocked = false;
-                            
+                        {                                                  
                             var result = JSON.parse(xhttp.responseText);
-                            callback(name, result);
+                            result.userName = name;
+                            
+                            if(result.stream != null)
+                                onlineStreamers.push(result);
+                            else
+                                offlineStreamers.push(result);
+                        
+                            if(isLastCall)
+                                lastCall(false);
                         }
                         else
                         {
                             console.log("Error", xhttp.statusText);
-                            buttonsLocked = false;
+                            
+                            if(isLastCall)
+                                lastCall(false);                        
                         }
                     }
                 };
@@ -199,23 +216,83 @@
                 xhttp.send();   
             }
             
-            function fillResultsField(name, streamerObj)
-            {                
-                var resultClone = document.getElementById("clone-01").cloneNode(true);
-                var header = resultClone.firstElementChild;
-                resultClone.removeAttribute("id");
-                header.getElementsByTagName('h4')[0].innerHTML = name;
+            function getChannel(name, idx, isLastCall)
+            {
+                var xhttp = new XMLHttpRequest();
                 
-                var isStreaming = streamerObj.stream != null;
+                xhttp.onreadystatechange = function(){
+                    if (xhttp.readyState == 4) 
+                    {
+                        if(xhttp.status == 200)
+                        {                      
+                            if(isLastCall)
+                                lastCall(true);
+                        }
+                        else
+                        {
+                            console.log("Error", xhttp.statusText);  
+                            offlineStreamers[idx].closedChannel = true; 
+                            
+                            if(isLastCall)
+                                lastCall(true);
+                        }
+                    }
+                };
                 
-                if(isStreaming)
+                xhttp.open("GET", "https://api.twitch.tv/kraken/channels/" + name, true);
+                xhttp.setRequestHeader("Client-ID", "qommjzx8gzcyskocbzmig7rh1zi2i3");
+                xhttp.send();   
+            }
+            
+            function lastCall(lastStep)
+            {
+                if(lastStep)
                 {
-                    resultClone.getElementsByTagName('p')[0].innerHTML = streamerObj.stream.channel.status;
-                    header.getElementsByTagName('div')[0].style.backgroundColor = "green";
+                    fillResultsField();
+                    buttonsLocked = false;
                 }
+                else
+                {
+                    for(var i=0; i < offlineStreamers.length; i++)
+                    {
+                        var lastCall = i >= offlineStreamers.length - 1 ? true : false;
+                        getChannel(offlineStreamers[i].userName, i, lastCall);
+                    } 
+                }
+            }
+            
+            function fillResultsField()
+            {                 
+                var poolArray = [];
                 
-                if( currentState === "all" || isStreaming == (currentState === "online"))
+                if(currentState === "online")
+                    poolArray = onlineStreamers.slice();
+                else if(currentState == "offline")
+                    poolArray = offlineStreamers.slice();
+                else
+                    poolArray = (onlineStreamers.concat(offlineStreamers)).slice();
+                
+                for(var i=0; i < poolArray.length; i++)
+                { 
+                    var user = poolArray[i];                   
+                    var resultClone = document.getElementById("clone-01").cloneNode(true);
+                    var link = resultClone.firstElementChild;
+                    var header = resultClone.firstElementChild.firstElementChild;
+                    resultClone.removeAttribute("id");
+                    header.getElementsByTagName('h4')[0].innerHTML = user.userName;
+                    link.href = "https://www.twitch.tv/" + user.userName;
+                
+                    if(user.stream != null)
+                    {
+                        resultClone.getElementsByTagName('p')[0].innerHTML = user.stream.channel.status;
+                        header.getElementsByTagName('div')[0].style.backgroundColor = "green";
+                    }
+
+                    if(user.closedChannel == true)
+                        header.getElementsByTagName('div')[0].style.backgroundColor = "grey";
+                    
                     document.getElementById("results-cont").appendChild(resultClone);
+                }
             }
         };
         
