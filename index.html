@@ -153,8 +153,7 @@
             var favorites = ["ESL_SC2", "OgamingSC2", "cretetion", "freecodecamp", "storbeck", "habathcx", "RobotCaleb", "noobs2ninjas", "brunofin", "comster404"];                    
             var currentState = "all";
             var buttonsLocked = false;
-            var onlineStreamers = [];
-            var offlineStreamers = [];
+            var users = [];
             
             var buttons = document.getElementById("button-box").children;            
             for(var i=0; i < buttons.length; i++)
@@ -163,28 +162,30 @@
                     if(!buttonsLocked)
                     {
                         buttonsLocked = true;
-                        currentState = this.id;
+                        currentState = this.id;                        
                         var resultsBox = document.getElementById("results-cont");
-
                         while(resultsBox.firstChild)
                             resultsBox.removeChild(resultsBox.firstChild);
                         
-                        onlineStreamers = [];
-                        offlineStreamers = [];
-
-                        for(var i=0; i < favorites.length; i++)
-                        {
-                            var lastCall = i >= favorites.length - 1 ? true : false;
-                            getStream(favorites[i], lastCall);
-                        }
+                        users = [];                        
+                        sendRequest(favorites, getStreams);
                     }
                 });
             }
+            
+            function sendRequest(arr, foo)
+            {
+                for(var i=0; i < arr.length; i++)
+                {
+                    var lastCall = i >= arr.length - 1 ? true : false;
+                    foo.call(foo, arr[i], lastCall);
+                }
+            }
                              
-            function getStream(name, isLastCall)
+            function getStreams(name, isLastCall)
             {
                 var xhttp = new XMLHttpRequest();
-                
+                                
                 xhttp.onreadystatechange = function(){
                     if (xhttp.readyState == 4) 
                     {
@@ -192,21 +193,18 @@
                         {                                                  
                             var result = JSON.parse(xhttp.responseText);
                             result.userName = name;
-                            
-                            if(result.stream != null)
-                                onlineStreamers.push(result);
-                            else
-                                offlineStreamers.push(result);
+                            result.isOnline = result.stream != null;
+                            users.push(result);
                         
                             if(isLastCall)
-                                lastCall(false);
+                                lastCallHandler(false);
                         }
                         else
                         {
                             console.log("Error", xhttp.statusText);
                             
                             if(isLastCall)
-                                lastCall(false);                        
+                                lastCallHandler(false);                        
                         }
                     }
                 };
@@ -216,7 +214,7 @@
                 xhttp.send();   
             }
             
-            function getChannel(name, idx, isLastCall)
+            function getChannels(name, isLastCall)
             {
                 var xhttp = new XMLHttpRequest();
                 
@@ -226,15 +224,20 @@
                         if(xhttp.status == 200)
                         {                      
                             if(isLastCall)
-                                lastCall(true);
+                                lastCallHandler(true);
                         }
                         else
                         {
-                            console.log("Error", xhttp.statusText);  
-                            offlineStreamers[idx].closedChannel = true; 
+                            console.log("Error", xhttp.statusText);
+                            
+                            for(var i=0; i < users.length; i++)
+                            {
+                                if(users[i].userName === name)
+                                    users[i].closedChannel = true; 
+                            }
                             
                             if(isLastCall)
-                                lastCall(true);
+                                lastCallHandler(true);
                         }
                     }
                 };
@@ -244,56 +247,57 @@
                 xhttp.send();   
             }
             
-            function lastCall(lastStep)
+            function lastCallHandler(serverCallsDone)
             {
-                if(lastStep)
+                if(serverCallsDone)
                 {
-                    fillResultsField();
+                    filterUsersArray();
                     buttonsLocked = false;
                 }
                 else
+                    sendRequest(favorites, getChannels)
+            }
+            
+            function filterUsersArray()
+            {
+                console.log(users);
+                
+                if(currentState !== "all")
                 {
-                    for(var i=0; i < offlineStreamers.length; i++)
-                    {
-                        var lastCall = i >= offlineStreamers.length - 1 ? true : false;
-                        getChannel(offlineStreamers[i].userName, i, lastCall);
-                    } 
+                    var mustBeOnline = currentState === "online" ? true : false;
+                    
+                    users = users.filter(function(currUser){
+                        return currUser.isOnline === mustBeOnline;
+                    });
                 }
+                
+                setTimeout(fillResultsField, 100);
             }
             
             function fillResultsField()
             {                 
-                var poolArray = [];
-                
-                if(currentState === "online")
-                    poolArray = onlineStreamers.slice();
-                else if(currentState == "offline")
-                    poolArray = offlineStreamers.slice();
-                else
-                    poolArray = (onlineStreamers.concat(offlineStreamers)).slice();
-                
-                for(var i=0; i < poolArray.length; i++)
+                for(var i=0; i < users.length; i++)
                 { 
-                    var user = poolArray[i];                   
                     var resultClone = document.getElementById("clone-01").cloneNode(true);
                     var link = resultClone.firstElementChild;
                     var header = resultClone.firstElementChild.firstElementChild;
                     resultClone.removeAttribute("id");
-                    header.getElementsByTagName('h4')[0].innerHTML = user.userName;
-                    link.href = "https://www.twitch.tv/" + user.userName;
+                    header.getElementsByTagName('h4')[0].innerHTML = users[i].userName;
+                    link.href = "https://www.twitch.tv/" + users[i].userName;
                 
-                    if(user.stream != null)
+                    if(users[i].isOnline)
                     {
-                        resultClone.getElementsByTagName('p')[0].innerHTML = user.stream.channel.status;
+                        resultClone.getElementsByTagName('p')[0].innerHTML = users[i].stream.channel.status;
                         header.getElementsByTagName('div')[0].style.backgroundColor = "green";
                     }
 
-                    if(user.closedChannel == true)
+                    if(users[i].closedChannel)
                         header.getElementsByTagName('div')[0].style.backgroundColor = "grey";
                     
                     document.getElementById("results-cont").appendChild(resultClone);
                 }
             }
+            
         };
         
     </script>
