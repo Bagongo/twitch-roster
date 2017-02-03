@@ -286,14 +286,14 @@
             
             function searchUser()
             {
-                var typed = this.value; 
+                var typed = this.value.toString().toLowerCase(); 
                 var results = document.getElementById("results-cont").children;
 
                 if(typed.length >= 2)
                 {                      
                     for(var j=0; j < results.length; j++)
                     {
-                        if(results[j].id.substr(0, typed.length) !== typed)
+                        if(results[j].id.substr(0, typed.length).toLocaleLowerCase() !== typed)
                             results[j].style.display = "none";
                         else
                             results[j].style.display = "flex";
