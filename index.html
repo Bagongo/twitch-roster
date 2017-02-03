@@ -118,7 +118,7 @@
             
             <div id="top-section">
                 <img src="http://blog.maniaplanet.com/wp-content/uploads/2013/03/new-twitchtv-logo.png" />
-                <input type="text" />
+                <input id="search-bar" type="text"/>
             </div>
             
             <br />
@@ -154,6 +154,7 @@
             var currentState = "all";
             var buttonsLocked = false;
             var users = [];
+            document.getElementById("search-bar").addEventListener("keyup", searchUser);
             
             var buttons = document.getElementById("button-box").children;            
             for(var i=0; i < buttons.length; i++)
@@ -164,25 +165,27 @@
                         buttonsLocked = true;
                         currentState = this.id;                        
                         var resultsBox = document.getElementById("results-cont");
+                        
                         while(resultsBox.firstChild)
                             resultsBox.removeChild(resultsBox.firstChild);
                         
                         users = [];                        
-                        sendRequest(favorites, getStreams);
+                        makeRequests("streams");
                     }
                 });
             }
             
-            function sendRequest(arr, foo)
+            function makeRequests(type)
             {
-                for(var i=0; i < arr.length; i++)
+                for(var i=0; i < favorites.length; i++)
                 {
-                    var lastCall = i >= arr.length - 1 ? true : false;
-                    foo.call(foo, arr[i], lastCall);
+                    var lastCall = i >= favorites.length - 1 ? true : false;
+                    var callback = type === "streams" ? updateStreamInfo : updateChannelInfo;
+                    sendRequest(favorites[i], type, callback, lastCall);
                 }
             }
                              
-            function getStreams(name, isLastCall)
+            function sendRequest(name, type, callback, isLastCall)
             {
                 var xhttp = new XMLHttpRequest();
                                 
@@ -192,70 +195,53 @@
                         if(xhttp.status == 200)
                         {                                                  
                             var result = JSON.parse(xhttp.responseText);
-                            result.userName = name;
-                            result.isOnline = result.stream != null;
-                            users.push(result);
+                            callback.call(callback, name, result);
                         
                             if(isLastCall)
-                                lastCallHandler(false);
+                                lastCallHandler(type);
                         }
                         else
                         {
                             console.log("Error", xhttp.statusText);
                             
                             if(isLastCall)
-                                lastCallHandler(false);                        
+                                lastCallHandler(type);                        
                         }
                     }
                 };
                 
-                xhttp.open("GET", "https://api.twitch.tv/kraken/streams/" + name, true);
-                xhttp.setRequestHeader("Client-ID", "qommjzx8gzcyskocbzmig7rh1zi2i3");
+                xhttp.open("GET", "https://wind-bow.gomix.me/twitch-api/" + type + "/" + name, true);
                 xhttp.send();   
             }
             
-            function getChannels(name, isLastCall)
+            function updateStreamInfo(name, data)
             {
-                var xhttp = new XMLHttpRequest();
-                
-                xhttp.onreadystatechange = function(){
-                    if (xhttp.readyState == 4) 
+                data.userName = name;
+                data.isOnline = data.stream != null;
+                users.push(data);                
+            }
+            
+            function updateChannelInfo(name, data)
+            {                
+                if(data.error == "Not Found")
+                {
+                    for(var i=0; i < users.length; i++)
                     {
-                        if(xhttp.status == 200)
-                        {                      
-                            if(isLastCall)
-                                lastCallHandler(true);
-                        }
-                        else
-                        {
-                            console.log("Error", xhttp.statusText);
-                            
-                            for(var i=0; i < users.length; i++)
-                            {
-                                if(users[i].userName === name)
-                                    users[i].closedChannel = true; 
-                            }
-                            
-                            if(isLastCall)
-                                lastCallHandler(true);
-                        }
+                        if(users[i].userName === name)
+                        users[i].closedChannel = true; 
                     }
-                };
-                
-                xhttp.open("GET", "https://api.twitch.tv/kraken/channels/" + name, true);
-                xhttp.setRequestHeader("Client-ID", "qommjzx8gzcyskocbzmig7rh1zi2i3");
-                xhttp.send();   
+                }                
             }
             
-            function lastCallHandler(serverCallsDone)
+            function lastCallHandler(type)
             {
-                if(serverCallsDone)
+                if(type === "channels")
                 {
                     filterUsersArray();
                     buttonsLocked = false;
                 }
                 else
-                    sendRequest(favorites, getChannels)
+                    makeRequests("channels");
             }
             
             function filterUsersArray()
@@ -271,7 +257,7 @@
                     });
                 }
                 
-                setTimeout(fillResultsField, 100);
+                fillResultsField();
             }
             
             function fillResultsField()
@@ -281,7 +267,7 @@
                     var resultClone = document.getElementById("clone-01").cloneNode(true);
                     var link = resultClone.firstElementChild;
                     var header = resultClone.firstElementChild.firstElementChild;
-                    resultClone.removeAttribute("id");
+                    resultClone.id = users[i].userName;
                     header.getElementsByTagName('h4')[0].innerHTML = users[i].userName;
                     link.href = "https://www.twitch.tv/" + users[i].userName;
                 
@@ -296,6 +282,28 @@
                     
                     document.getElementById("results-cont").appendChild(resultClone);
                 }
+            }
+            
+            function searchUser()
+            {
+                var typed = this.value; 
+                var results = document.getElementById("results-cont").children;
+
+                if(typed.length >= 2)
+                {                      
+                    for(var j=0; j < results.length; j++)
+                    {
+                        if(results[j].id.substr(0, typed.length) !== typed)
+                            results[j].style.display = "none";
+                        else
+                            results[j].style.display = "flex";
+                    }
+                } 
+                else
+                {
+                   for(var i=0; i < results.length; i++)
+                        results[i].style.display = "flex";
+                }                
             }
             
         };
