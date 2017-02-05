@@ -55,7 +55,7 @@
         background-color: aqua;
     }
     
-    #top-section *{
+    #top-section > *{
         margin: 5%;
     }
     
@@ -64,8 +64,20 @@
         height: auto;
     }
     
-    #top-section input{
+    form{
+        display: flex;
+        flex-flow: row;
+        flex-wrap: nowrap;       
+    }
+    
+    form input{
         height: 40px;
+        align-self: center;
+    }
+    
+    form button{
+        height: 40px;
+        margin: 0 0 0 5px;
         align-self: center;
     }
     
@@ -83,15 +95,14 @@
     
     .result{
         width: 100%;
-        height: auto;
-        min-height: 75px;
+        height: 100px;
         display: flex;
         flex-direction: column;
         background-color: wheat;
     }
     
     .info-head{
-        height: 50%;
+        height: 35px;
         display: flex;
         flex-direction: row;
         flex-wrap: nowrap;
@@ -108,6 +119,24 @@
         background-color: red;
     }
     
+     #server-search{
+        display: none;
+        width: 300px;
+        height: 100px;
+    }
+    
+    #server-search > div > *{
+        display: inline-block;       
+    }
+    
+    #server-search .online-symbol{
+        background-color: grey;
+    }
+    
+    #server-search button{
+        display: none;
+    }
+    
 </style>    
 
 <body>
@@ -118,10 +147,32 @@
             
             <div id="top-section">
                 <img src="http://blog.maniaplanet.com/wp-content/uploads/2013/03/new-twitchtv-logo.png" />
-                <input id="search-bar" type="text"/>
+                <form>
+                    <input id="search-bar" type="text"/>
+                    <button id="search-btn">search on servers</button>
+                </form>
+                <div id="search-result"></div>
             </div>
             
             <br />
+            
+            <div id="server-search" class="result">
+                <a href="" target="_blank">
+                    <div class="info-head">
+                        <h4 class="small-margin"></h4>
+                        <div class="online-symbol small-margin"></div>
+                    </div>
+                </a>
+                <div>
+                    <p class="small-margin">User not found</p>
+                    <button id="add">add</button>
+                    <button id="close">close</button>
+                </div>
+            </div>
+            
+            <div id="your-favs">
+                <h3>Your Favorites</h3>
+            </div>
             
             <div id="button-box">
                 <button id="all">All</button>
@@ -154,8 +205,13 @@
             var currentState = "all";
             var buttonsLocked = false;
             var users = [];
-            document.getElementById("search-bar").addEventListener("keyup", searchUser);
-            
+            var newUser = "";
+            document.getElementById("search-bar").addEventListener("keyup", searchUserLocal);
+            document.getElementById("search-btn").addEventListener("click", searchUserOnServer);
+            var serverSearch = document.getElementById("server-search");
+            serverSearch.getElementsByTagName("button")[0].addEventListener("click", addToFavs);
+            serverSearch.getElementsByTagName("button")[1].addEventListener("click", dismissResult);
+            var yourFavs = document.getElementsByTagName("h3")[0];
             var buttons = document.getElementById("button-box").children;            
             for(var i=0; i < buttons.length; i++)
             {
@@ -202,7 +258,7 @@
                         }
                         else
                         {
-                            console.log("Error", xhttp.statusText);
+                            alert("Error", xhttp.statusText);
                             
                             if(isLastCall)
                                 lastCallHandler(type);                        
@@ -245,9 +301,7 @@
             }
             
             function filterUsersArray()
-            {
-                console.log(users);
-                
+            {                
                 if(currentState !== "all")
                 {
                     var mustBeOnline = currentState === "online" ? true : false;
@@ -268,23 +322,30 @@
                     var link = resultClone.firstElementChild;
                     var header = resultClone.firstElementChild.firstElementChild;
                     resultClone.id = users[i].userName;
-                    header.getElementsByTagName('h4')[0].innerHTML = users[i].userName;
-                    link.href = "https://www.twitch.tv/" + users[i].userName;
-                
+                    var status = "offline";
+                    var color = "red";
+                    
                     if(users[i].isOnline)
                     {
-                        resultClone.getElementsByTagName('p')[0].innerHTML = users[i].stream.channel.status;
-                        header.getElementsByTagName('div')[0].style.backgroundColor = "green";
+                        status = users[i].stream.channel.status;
+                        color = "green";
                     }
 
                     if(users[i].closedChannel)
-                        header.getElementsByTagName('div')[0].style.backgroundColor = "grey";
+                    {      
+                        status = "channel closed";
+                        color = "grey";
+                    }
                     
+                    header.getElementsByTagName('h4')[0].innerHTML = users[i].userName;
+                    link.href = "https://www.twitch.tv/" + users[i].userName;
+                    resultClone.getElementsByTagName('p')[0].innerHTML = status;
+                    header.getElementsByTagName('div')[0].style.backgroundColor = color;
                     document.getElementById("results-cont").appendChild(resultClone);
                 }
             }
             
-            function searchUser()
+            function searchUserLocal()
             {
                 var typed = this.value.toString().toLowerCase(); 
                 var results = document.getElementById("results-cont").children;
@@ -304,6 +365,59 @@
                    for(var i=0; i < results.length; i++)
                         results[i].style.display = "flex";
                 }                
+            }
+            
+            function searchUserOnServer(e)
+            {
+                e.preventDefault();
+                var toSearch = document.getElementById("search-bar").value;
+                
+                if(favorites.indexOf(toSearch) < 0)
+                {
+                    sendRequest(toSearch, "channels", serverSearchResult, false);                    
+                }
+            }
+            
+            function serverSearchResult(name, result)
+            {
+                yourFavs.style.display = "none";
+                serverSearch.style.display = "inline-block";
+                serverSearch.getElementsByTagName("h4")[0].innerHTML = name;
+                serverSearch.getElementsByTagName("div")[0].getElementsByTagName("div")[0].style.backgroundColor = "grey";
+                var status = serverSearch.getElementsByTagName("p")[0];
+                var buttons = serverSearch.getElementsByTagName("button");
+                buttons[0].style.display = buttons[1].style.display = "none";
+                
+                if(result.hasOwnProperty("error"))
+                {
+                    status.innerHTML = "User not found!";
+                    buttons[1].style.display = "inline-block";
+                }
+                else
+                {
+                    newUser = name;
+                    status.innerHTML = "User found!";
+                    buttons[0].style.display = buttons[1].style.display = "inline-block";
+                    sendRequest(name, "streams", updateColor, false);
+                }                
+            }
+            
+            function updateColor(name, result)
+            {
+                console.log(result);
+                serverSearch.getElementsByTagName("div")[0].getElementsByTagName("div")[0].style.backgroundColor = result.stream ==! null ? "green" : "red"; 
+            }
+                        
+            function addToFavs()
+            {
+                favorites.push(newUser);
+                dismissResult();
+            }
+            
+            function dismissResult()
+            {
+                yourFavs.style.display = "inline-block";
+                serverSearch.style.display = "none";                
             }
             
         };
