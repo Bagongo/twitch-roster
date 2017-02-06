@@ -205,7 +205,8 @@
             var currentState = "all";
             var buttonsLocked = false;
             var users = [];
-            var newUser = "";
+            var requestsToComplete = 0; 
+            var requestsCompleted = 0;
             document.getElementById("search-bar").addEventListener("keyup", searchUserLocal);
             document.getElementById("search-btn").addEventListener("click", searchUserOnServer);
             var serverSearch = document.getElementById("server-search");
@@ -219,29 +220,22 @@
                     if(!buttonsLocked)
                     {
                         buttonsLocked = true;
-                        currentState = this.id;                        
                         var resultsBox = document.getElementById("results-cont");
                         
                         while(resultsBox.firstChild)
                             resultsBox.removeChild(resultsBox.firstChild);
                         
-                        users = [];                        
-                        makeRequests("streams");
+                        currentState = this.id;                        
+                        users = []; 
+                        requestsToComplete = favorites.length * 2;
+                        
+                        for(var i=0; i < favorites.length; i++)
+                            createUserObj(favorites[i]);
                     }
                 });
             }
-            
-            function makeRequests(type)
-            {
-                for(var i=0; i < favorites.length; i++)
-                {
-                    var lastCall = i >= favorites.length - 1 ? true : false;
-                    var callback = type === "streams" ? updateStreamInfo : updateChannelInfo;
-                    sendRequest(favorites[i], type, callback, lastCall);
-                }
-            }
-                             
-            function sendRequest(name, type, callback, isLastCall)
+                   
+            function sendRequest(user, type, callback)
             {
                 var xhttp = new XMLHttpRequest();
                                 
@@ -249,69 +243,94 @@
                     if (xhttp.readyState == 4) 
                     {
                         if(xhttp.status == 200)
-                        {                                                  
+                        { 
+                            requestsCompleted++;
                             var result = JSON.parse(xhttp.responseText);
-                            callback.call(callback, name, result);
-                        
-                            if(isLastCall)
-                                lastCallHandler(type);
+                            callback.call(callback, user, result);
                         }
                         else
                         {
-                            alert("Error", xhttp.statusText);
-                            
-                            if(isLastCall)
-                                lastCallHandler(type);                        
+                            requestsCompleted++;
+                            alert("Error", xhttp.statusText);                      
                         }
                     }
                 };
                 
-                xhttp.open("GET", "https://wind-bow.gomix.me/twitch-api/" + type + "/" + name, true);
+                xhttp.open("GET", "https://wind-bow.gomix.me/twitch-api/" + type + "/" + user.userName, true);
                 xhttp.send();   
             }
             
-            function updateStreamInfo(name, data)
+            function createUserObj(name)
             {
-                data.userName = name;
-                data.isOnline = data.stream != null;
-                users.push(data);                
+                var userObj = {userName:name};
+                sendRequest(userObj, "channels", setChannelInfo);
             }
             
-            function updateChannelInfo(name, data)
-            {                
-                if(data.error == "Not Found")
-                {
-                    for(var i=0; i < users.length; i++)
-                    {
-                        if(users[i].userName === name)
-                        users[i].closedChannel = true; 
-                    }
-                }                
+            function setChannelInfo(user, data)
+            {
+                user.channelInfo = data;                 
+                sendRequest(user, "streams", setStreamInfo);
             }
             
-            function lastCallHandler(type)
+            function setStreamInfo(user, data)
             {
-                if(type === "channels")
+                user.streamInfo = data; 
+                users.push(user);
+                
+                if(requestsCompleted >= requestsToComplete)
                 {
-                    filterUsersArray();
+                    requestsToComplete = 0; 
+                    requestsCompleted = 0;
                     buttonsLocked = false;
+                    filterUsers();  
                 }
-                else
-                    makeRequests("channels");
             }
             
-            function filterUsersArray()
+            function filterUsers()
             {                
-                if(currentState !== "all")
+                if(currentState === "online" || currentState === "offline")
                 {
                     var mustBeOnline = currentState === "online" ? true : false;
                     
-                    users = users.filter(function(currUser){
-                        return currUser.isOnline === mustBeOnline;
+                    users = users.filter(function(item){
+                        return (item.streamInfo.stream !== null) === mustBeOnline;
                     });
                 }
                 
-                fillResultsField();
+                fillResultBox();
+            }
+            
+            function fillResultBox()
+            {
+                console.log(users);
+                
+                for(var i=0; i < users.length; i++)
+                { 
+                    var resultClone = document.getElementById("clone-01").cloneNode(true);
+                    var link = resultClone.firstElementChild;
+                    var header = resultClone.firstElementChild.firstElementChild;
+                    resultClone.id = users[i].userName;
+                    var status = "offline";
+                    var color = "red";
+                    
+                    if(users[i].isOnline)
+                    {
+                        status = users[i].stream.channel.status;
+                        color = "green";
+                    }
+
+                    if(users[i].closedChannel)
+                    {      
+                        status = "channel closed";
+                        color = "grey";
+                    }
+                    
+                    header.getElementsByTagName('h4')[0].innerHTML = users[i].userName;
+                    link.href = "https://www.twitch.tv/" + users[i].userName;
+                    resultClone.getElementsByTagName('p')[0].innerHTML = status;
+                    header.getElementsByTagName('div')[0].style.backgroundColor = color;
+                    document.getElementById("results-cont").appendChild(resultClone);
+                }
             }
             
             function fillResultsField()
@@ -374,6 +393,7 @@
                 
                 if(favorites.indexOf(toSearch) < 0)
                 {
+                    currentState = "singleRequest";
                     sendRequest(toSearch, "channels", serverSearchResult, false);                    
                 }
             }
@@ -404,7 +424,6 @@
             
             function updateColor(name, result)
             {
-                console.log(result);
                 serverSearch.getElementsByTagName("div")[0].getElementsByTagName("div")[0].style.backgroundColor = result.stream ==! null ? "green" : "red"; 
             }
                         
