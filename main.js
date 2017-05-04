@@ -53,28 +53,23 @@ window.onload = function(){
     //tha actual ajax call
     function sendRequest(user, type, callback)
     {
-        var xhttp = new XMLHttpRequest();
+        var requestURL = "https://wind-bow.gomix.me/twitch-api/" + type + "/" + user.userName + "?callback=?";
 
-        xhttp.onreadystatechange = function(){
-            if (xhttp.readyState == 4) 
-            {
-                if(xhttp.status == 200)
-                { 
-                    requestsCompleted++;
-                    var result = JSON.parse(xhttp.responseText);
-                    callback.call(callback, user, result);
-                }
-                else
-                {
-                    requestsCompleted++;
-                    alert("Error", xhttp.statusText);
-                    dismissResult();
-                }
+        $.ajax({
+            url: requestURL,
+            dataType: "json",
+            success: function(data){
+                requestsCompleted++;
+                //console.log(data);
+                // var result = JSON.parse(data);
+                callback.call(callback, user, data);
+            },
+            error: function( data ){
+                console.log("Error", data);
+                requestsCompleted++;
+                dismissResult();
             }
-        };
-
-        xhttp.open("GET", "https://wind-bow.gomix.me/twitch-api/" + type + "/" + user.userName, true);
-        xhttp.send();   
+        });        
     }
 
     //initiate the process of creating an user obj with all the necessary info

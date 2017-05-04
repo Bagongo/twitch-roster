@@ -13,6 +13,10 @@ button{
     background-color: #ECECEC;
 }
 
+button:focus {
+    outline:0;
+}
+
 .small-margin{
     margin: 10px;
 }
@@ -149,6 +153,10 @@ form button{
     justify-content: space-between;
     align-items: center;
     background-color: skyblue;
+}
+
+.info-head:hover{
+      background-color: #6ac3e8;
 }
 
 .online-symbol{
